@@ -1,6 +1,9 @@
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 from operator import itemgetter
+
+np.set_printoptions(suppress=True)
 
 #Los costos asociados al arco ij
 distances = np.array([
@@ -32,6 +35,20 @@ pheromones = np.array([
 	(0.01, 0.01, 0, 0, 0.01, 0.01, 0, 0, 0, 0, 0)
 	])
 
+initialPheromones = np.array([ 
+	(0, 0.01, 0.01, 0, 0.01, 0, 0, 0, 0, 0.01, 0.01), 
+	(0.01, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0.01, 0.01), 
+	(0.01, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0),
+	(0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0, 0),
+	(0.01, 0, 0.01, 0, 0, 0.01, 0, 0.01, 0, 0, 0.01),
+	(0, 0.01, 0, 0, 0.01, 0, 0.01, 0.01, 0.01, 0, 0.01),
+	(0, 0, 0, 0.01, 0, 0.01, 0, 0.01, 0.01, 0, 0),
+	(0, 0, 0.01, 0, 0.01, 0.01, 0.01, 0, 0, 0, 0),
+	(0, 0.01, 0, 0.01, 0, 0.01, 0.01, 0, 0, 0, 0),
+	(0.01, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+	(0.01, 0.01, 0, 0, 0.01, 0.01, 0, 0, 0, 0, 0)
+	])
+
 visibility = np.array([
 	(0, 1/8, 1/7, 0, 1/3, 0, 0, 0, 0, 1/7, 1/5),
 	(1/8, 0, 0, 0, 0, 1/4, 0, 0, 1/4, 1/5, 1/4), 
@@ -47,6 +64,7 @@ visibility = np.array([
 	])
 
 class ant(object):
+
 	def __init__(self):
 
 		self.tabu = []
@@ -90,11 +108,9 @@ class ant(object):
 				self.nextNode = None
 
 
-		return self.tabu
+		return (self.tabu, self.evaluateSol(totalCities))
 
-
-
-	def chooseNext(self,nodesNum):
+	def chooseNext(self, nodesNum):
 
 		candidates = []
 		probabilities = []
@@ -109,7 +125,7 @@ class ant(object):
 
 			return -1
 
-	#Obteniendo Candidatos posibles, no visitados.
+		#Obteniendo Candidatos posibles, no visitados.
 		for x in range(nodesNum):
 
 			a, b = distances[self.currentNode][x] != 0, x not in self.tabu
@@ -130,12 +146,12 @@ class ant(object):
 
 			return -1
 
-	#Cálculo de las probabilidades.
+		#Cálculo de las probabilidades.
 		for i in range (0, len(candidates)):
 
 			candidates[i][4] = candidates[i][3] / sumEtaTau
 
-	#Probabilidad acumulada
+		#Probabilidad acumulada
 		candidates.sort(key = itemgetter(4), reverse = True)
 		
 		for i in range(0, len(candidates) - 1):
@@ -145,7 +161,7 @@ class ant(object):
 					candidates[i][4] += candidates[j][4]
 
 		
-	#Selección por ruleta
+		#Selección por ruleta
 
 		if len(candidates) == 1:
 
@@ -178,15 +194,117 @@ class ant(object):
 
 					selection = candidates[i][0]
 					return selection
+	
+	def evaluateSol(self, nodesNum):
 
-				
+		score = 0
+		
+		for x in range(len(self.tabu) - 1):
+
+			i, j = self.tabu[x], self.tabu[x + 1]
+
+			score = score + distances[i][j]
+
+		return int(score)
+		
+class Solution(object):
+
+	def trails(self, antPopulation, P):
+		"""
+        :type antPopulation: int
+        :rtype: string
+        """
+		time = 150
+		xaxis, yaxis, performance = [], [], []
+
+		while time != 0: 
+
+			colony = []
+			for ants in range(antPopulation):
+
+				colony.append(ant().searchSol())
+
+
+			fittest = min(colony, key = itemgetter(1))
+
+			xaxis.append(time)
+			yaxis.append(fittest[1])
+
+
+			print("time left: ", time)
+			print("fittest ant: ", fittest)
+			print("other scores:")
+
+			for insect in colony:
+
+				print(insect[1])
+
+			self.evaporate(0.5, P)
+			self.updatePheromones(fittest, P)
+
+			time -= 1
+
+		performance.append(xaxis)
+		performance.append(yaxis)
+		
+		print("PHEROMONE TRAIL: \n", pheromones)
+
+		self.plotStats(performance)
+
+		return (fittest)
 			
 
-		
-		
+	def evaporate(self, rho, P):
 
+		evaporationRate = (1.0 - rho)
+		P *= evaporationRate
 
+	def updatePheromones(self, antTrail, P):
+
+		trail = antTrail[0]
+		deltaTau = 1 / antTrail[1]
+
+		for x in range(len(trail) - 1):
+
+			i, j = trail[x], trail[x + 1]
 			
+			P[i][j] += deltaTau
+
+	def plotStats(self, performance):
+
+		fig = plt.figure(figsize = (10, 6))
+
+		ax = []
+
+		ax.append(fig.add_subplot(2, 4, 1))
+		ax[-1].set_title("Distances:"+str(0))
+		plt.imshow(distances, cmap= "afmhot", interpolation = "bessel")
+
+		ax.append(fig.add_subplot(2, 4, 2))
+		ax[-1].set_title("Initial Trails:")
+		plt.imshow(initialPheromones, cmap= "afmhot", interpolation = "bessel")
+
+		ax.append(fig.add_subplot(2, 4, 3))
+		ax[-1].set_title("Visibility:")
+		plt.imshow(visibility, cmap= "afmhot", interpolation = "bessel")
+
+		ax.append(fig.add_subplot(2, 4, 4))
+		ax[-1].set_title("Result Trails:")
+		plt.imshow(pheromones, cmap= "afmhot", interpolation = "bessel")
+
+		ax.append(fig.add_subplot(2, 1, 2))
+		ax[-1].set_title("Performance over Time:")
+		plt.plot(performance[0], performance[1])
+		plt.show()
+
+		#distances, initialPheromones, visibility, pheromones
+		#plt.imshow(pheromones, cmap= "afmhot", interpolation = "bessel")
+		plt.show()
+
+		
+		print("PERFORMANCE: ")
+		print(performance)
+
 		
 
 def main():
@@ -202,10 +320,7 @@ def main():
 
 	#print(cityCounter)
 
-	print(ant().searchSol())
-
-
-
+	Solution().trails(4, pheromones)
 
 if __name__ == '__main__':
 
